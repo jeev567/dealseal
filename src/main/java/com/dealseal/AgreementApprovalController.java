@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AgreementApprovalController {
     public record CreateRequest(@NotEmpty List<@NotBlank String> terms) {}
     public record ApproveRequest(@NotBlank String party, int version) {}
+    public record ReviseRequest(int expectedVersion, @NotEmpty List<@NotBlank String> terms) {}
     public record AgreementView(UUID id, int version, List<String> terms,
                                 boolean clientApproved, boolean developerApproved,
                                 boolean bothApproved, String status, Instant updatedAt) {}
@@ -78,10 +79,12 @@ public class AgreementApprovalController {
     }
 
     @PutMapping("/{id}/versions")
-    public AgreementView revise(@PathVariable UUID id, @Valid @RequestBody CreateRequest request) {
+    public AgreementView revise(@PathVariable UUID id, @Valid @RequestBody ReviseRequest request) {
         List<String> terms = validateTerms(request.terms());
         Agreement agreement = get(id);
         synchronized (agreement) {
+            if (request.expectedVersion() != agreement.version)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Agreement version changed; review the latest version");
             if (agreement.version == Integer.MAX_VALUE)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Version limit reached");
             agreement.version++;
