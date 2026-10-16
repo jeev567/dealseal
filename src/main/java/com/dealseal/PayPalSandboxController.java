@@ -31,6 +31,7 @@ public class PayPalSandboxController {
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ObjectMapper mapper;
     private final AgreementApprovalController agreements;
+    private final LockedConsentController lockedConsent;
     private final Map<String, OrderRecord> orders = new ConcurrentHashMap<>();
 
     @Value("${paypal.sandbox.client-id:}")
@@ -38,9 +39,10 @@ public class PayPalSandboxController {
     @Value("${paypal.sandbox.client-secret:}")
     private String clientSecret;
 
-    public PayPalSandboxController(ObjectMapper mapper, AgreementApprovalController agreements) {
+    public PayPalSandboxController(ObjectMapper mapper, AgreementApprovalController agreements, LockedConsentController lockedConsent) {
         this.mapper = mapper;
         this.agreements = agreements;
+        this.lockedConsent = lockedConsent;
     }
 
     @GetMapping("/status")
@@ -78,9 +80,10 @@ public class PayPalSandboxController {
     private void requireApproved(UUID agreementId, int version) {
         if (agreementId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Agreement ID required");
         var agreement = agreements.read(agreementId);
-        if (agreement.version() != version || !agreement.bothApproved())
+        if (agreement.version() != version)
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Both demo approvals are required for the current agreement version");
+                    "Agreement version changed");
+        lockedConsent.requireBoth(agreementId, version);
     }
 
     @PostMapping("/orders")
