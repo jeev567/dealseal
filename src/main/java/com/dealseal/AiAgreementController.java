@@ -6,6 +6,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -17,6 +19,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/ai")
 public class AiAgreementController {
+    private static final Logger log = LoggerFactory.getLogger(AiAgreementController.class);
 
     @Value("${ai.openai.key:}")
     private String OPENAI_API_KEY;
@@ -55,16 +58,24 @@ public class AiAgreementController {
                     .timeout(Duration.ofSeconds(35)).header("Authorization", "Bearer " + key).header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body))).build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200)
+            if (response.statusCode() != 200) {
+                log.warn("AI provider request failed with HTTP {}", response.statusCode());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI provider returned HTTP " + response.statusCode());
+            }
             JsonNode result = mapper.readTree(mapper.readTree(response.body()).path("choices").path(0).path("message").path("content").asText());
             Set<String> validIds = new HashSet<>();
             for (Map<String, String> m : messages) validIds.add(m.get("id"));
-            validator.validate(result, validIds);
+            try {
+                validator.validate(result, validIds);
+            } catch (IllegalArgumentException invalid) {
+                log.warn("AI response validation failed: {}", invalid.getMessage());
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI response failed validation");
+            }
             return result;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
+            log.error("AI analysis failed (exception type: {})", e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI analysis failed; retry or use offline analyzer", e);
         }
     }
