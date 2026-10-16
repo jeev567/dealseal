@@ -74,6 +74,15 @@ if ! systemctl is-active --quiet dealseal || ! curl --silent --output /dev/null 
   systemctl restart dealseal || true
   exit 1
 fi
+# Refresh DNS after each successful deployment; the timer remains enabled independently.
+if systemctl is-enabled --quiet duckdns-update.timer; then
+  echo "DuckDNS timer enabled"
+fi
+if systemctl start duckdns-update.service; then
+  echo "DuckDNS updated during deployment"
+else
+  echo "WARNING: DuckDNS update failed; check journalctl -u duckdns-update.service" >&2
+fi
 echo "DealSeal deployment healthy"
 """
 script = script.replace("JAR_URL", shlex.quote(jar)).replace("FRONTEND_URL", shlex.quote(frontend))
