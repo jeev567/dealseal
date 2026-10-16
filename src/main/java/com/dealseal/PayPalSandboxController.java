@@ -32,6 +32,7 @@ public class PayPalSandboxController {
     private final ObjectMapper mapper;
     private final AgreementApprovalController agreements;
     private final LockedConsentController lockedConsent;
+    private final DemoStore store;
     private final Map<String, OrderRecord> orders = new ConcurrentHashMap<>();
 
     @Value("${paypal.sandbox.client-id:}")
@@ -39,10 +40,11 @@ public class PayPalSandboxController {
     @Value("${paypal.sandbox.client-secret:}")
     private String clientSecret;
 
-    public PayPalSandboxController(ObjectMapper mapper, AgreementApprovalController agreements, LockedConsentController lockedConsent) {
+    public PayPalSandboxController(ObjectMapper mapper, AgreementApprovalController agreements, LockedConsentController lockedConsent, DemoStore store) {
         this.mapper = mapper;
         this.agreements = agreements;
         this.lockedConsent = lockedConsent;
+        this.store = store;
     }
 
     @GetMapping("/status")
@@ -121,6 +123,7 @@ public class PayPalSandboxController {
             }
             if (id.isBlank() || !approvalUrl.startsWith("https://www.sandbox.paypal.com/"))
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "PayPal Sandbox did not return an approval URL");
+            store.saveOrder(id,new DemoStore.OrderRow(input.agreementId(), input.version(), value));
             orders.put(id, new OrderRecord(input.agreementId(), input.version(), value));
             return new OrderView(id, result.path("status").asText(), approvalUrl, value, "USD");
         } catch (ResponseStatusException e) { throw e; }
@@ -129,7 +132,7 @@ public class PayPalSandboxController {
 
     @PostMapping("/orders/{orderId}/capture")
     public OrderView capture(@PathVariable String orderId, @RequestBody(required = false) Map<String, Object> ignored) {
-        OrderRecord order = orders.get(orderId);
+        OrderRecord order = orders.computeIfAbsent(orderId, key -> store.order(key).map(row -> new OrderRecord(row.agreementId(),row.version(),row.amount())).orElse(null));
         if (order == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown demo order");
         requireApproved(order.agreementId(), order.version());
         try {
