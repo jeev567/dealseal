@@ -14,23 +14,44 @@ data "aws_ami" "al2023" {
     values = ["hvm"]
   }
 }
-data "aws_vpc" "default" {
-  default = true
+resource "aws_vpc" "dealseal" {
+  cidr_block           = "10.42.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags = { Name = "${var.project_name}-vpc" }
 }
-data "aws_subnets" "default" {
-  filter {
-    name = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-  filter {
-    name = "default-for-az"
-    values = ["true"]
-  }
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.dealseal.id
+  cidr_block              = "10.42.1.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "${var.aws_region}a"
+  tags = { Name = "${var.project_name}-public" }
 }
+
+resource "aws_internet_gateway" "web" {
+  vpc_id = aws_vpc.dealseal.id
+  tags   = { Name = "${var.project_name}-igw" }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.dealseal.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.web.id
+  }
+  tags = { Name = "${var.project_name}-public-rt" }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
 resource "aws_security_group" "web" {
   name_prefix = "${var.project_name}-"
   description = "DealSeal demo web access"
-  vpc_id = data.aws_vpc.default.id
+  vpc_id = aws_vpc.dealseal.id
   ingress {
     description = "HTTP"
     from_port = 80
@@ -81,7 +102,7 @@ resource "aws_iam_instance_profile" "instance" {
 resource "aws_instance" "app" {
   ami = data.aws_ami.al2023.id
   instance_type = var.instance_type
-  subnet_id = sort(data.aws_subnets.default.ids)[0]
+  subnet_id = aws_subnet.public.id
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.web.id]
   iam_instance_profile = aws_iam_instance_profile.instance.name
