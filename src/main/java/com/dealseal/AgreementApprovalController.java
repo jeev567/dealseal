@@ -122,6 +122,7 @@ public class AgreementApprovalController {
                 default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Party must be CLIENT or DEVELOPER");
             }
             agreement.updatedAt = Instant.now();
+            persist(agreement);
             return agreement.view();
         }
     }
