@@ -15,3 +15,16 @@ src/main/resources/application-local.yml
 .DS_Store
 # Locally issued contract PDFs (sensitive)
 /data/contracts/
+
+# Terraform local state and overrides
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfplan
+**/terraform.tfvars
+**/crash.log
+
+# SQLite demo database
+*.db
+*.db-shm
+*.db-wal
