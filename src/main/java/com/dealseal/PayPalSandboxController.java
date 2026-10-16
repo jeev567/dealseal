@@ -142,6 +142,17 @@ public class PayPalSandboxController {
         catch (Exception e) { throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "PayPal Sandbox order creation failed"); }
     }
 
+    public record OrderContext(UUID agreementId, int version, String amount, String currency) {}
+
+    @GetMapping("/orders/{orderId}/context")
+    public OrderContext context(@PathVariable String orderId) {
+        OrderRecord order = orders.computeIfAbsent(orderId, key ->
+                store.order(key).map(row -> new OrderRecord(row.agreementId(), row.version(), row.amount())).orElse(null));
+        if (order == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown demo order");
+        requireApproved(order.agreementId(), order.version());
+        return new OrderContext(order.agreementId(), order.version(), order.amount(), "USD");
+    }
+
     @PostMapping("/orders/{orderId}/capture")
     public OrderView capture(@PathVariable String orderId, @RequestBody(required = false) Map<String, Object> ignored) {
         OrderRecord order = orders.computeIfAbsent(orderId, key -> store.order(key).map(row -> new OrderRecord(row.agreementId(),row.version(),row.amount())).orElse(null));
