@@ -40,6 +40,9 @@ public class PayPalSandboxController {
     @Value("${paypal.sandbox.client-secret:}")
     private String clientSecret;
 
+    @Value("${paypal.sandbox.return-base-url:https://dealseal-demo.duckdns.org}")
+    private String returnBaseUrl;
+
     public PayPalSandboxController(ObjectMapper mapper, AgreementApprovalController agreements, LockedConsentController lockedConsent, DemoStore store) {
         this.mapper = mapper;
         this.agreements = agreements;
@@ -102,7 +105,16 @@ public class PayPalSandboxController {
         requireApproved(input.agreementId(), input.version());
         try {
             String value = amount.toPlainString();
-            Map<String, Object> payload = Map.of("intent", "CAPTURE", "purchase_units", List.of(Map.of(
+            String origin = returnBaseUrl.replaceAll("/+$", "");
+            if (!origin.startsWith("https://") && !origin.startsWith("http://localhost"))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "PayPal return URL must use HTTPS");
+            Map<String, Object> payload = Map.of(
+                    "intent", "CAPTURE",
+                    "payment_source", Map.of("paypal", Map.of("experience_context", Map.of(
+                            "return_url", origin + "/?paypalReturn=approved",
+                            "cancel_url", origin + "/?paypalReturn=cancelled",
+                            "user_action", "PAY_NOW"))),
+                    "purchase_units", List.of(Map.of(
                     "reference_id", input.agreementId().toString(),
                     "description", "DealSeal demo payment for agreement version " + input.version(),
                     "amount", Map.of("currency_code", "USD", "value", value))));
