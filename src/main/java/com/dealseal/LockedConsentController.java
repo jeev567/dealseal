@@ -24,6 +24,7 @@ public class LockedConsentController {
     public record ConsentView(UUID agreementId, int version, String sha256, String party,
                               List<String> terms, boolean approved, String status) {}
     public record ConsentRequest(boolean explicitlyAgree) {}
+    public record FinalizedSnapshot(UUID agreementId, int version, String sha256, List<String> terms, Instant clientApprovedAt, Instant developerApprovedAt) {}
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final class Locked {
         final UUID id;
@@ -34,6 +35,8 @@ public class LockedConsentController {
         final String developerToken;
         boolean clientApproved;
         boolean developerApproved;
+        Instant clientApprovedAt;
+        Instant developerApprovedAt;
         Locked(AgreementApprovalController.AgreementView agreement) {
             id = agreement.id(); version = agreement.version(); terms = List.copyOf(agreement.terms());
             hash = sha(String.join("\n", terms).getBytes(StandardCharsets.UTF_8));
@@ -104,8 +107,16 @@ public class LockedConsentController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Explicit consent required");
         Locked l = current(id); synchronized(l) {
             String p = party(l, token);
-            if (p.equals("CLIENT")) l.clientApproved = true; else l.developerApproved = true;
+            if (p.equals("CLIENT")) { l.clientApproved = true; if (l.clientApprovedAt == null) l.clientApprovedAt = Instant.now(); } else { l.developerApproved = true; if (l.developerApprovedAt == null) l.developerApprovedAt = Instant.now(); }
             return new ConsentView(id, l.version, l.hash, p, l.terms, true, status(l));
+        }
+    }
+    public FinalizedSnapshot finalized(UUID id, int version) {
+        Locked l = current(id);
+        synchronized(l) {
+            if (l.version != version || !l.clientApproved || !l.developerApproved)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Both independent consents required before finalization");
+            return new FinalizedSnapshot(id, l.version, l.hash, l.terms, l.clientApprovedAt, l.developerApprovedAt);
         }
     }
     public void requireBoth(UUID id, int version) {
