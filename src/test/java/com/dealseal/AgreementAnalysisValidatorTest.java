@@ -45,4 +45,16 @@ class AgreementAnalysisValidatorTest {
         response.remove("warnings");
         assertThrows(IllegalArgumentException.class, () -> validator.validate(response, Set.of("m1")));
     }
+    @Test void rejectsTermWithoutQuestion() throws Exception {
+        ObjectNode response = valid();
+        ((ObjectNode) response.path("terms").get(0)).remove("question");
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(response, Set.of("m1")));
+    }
+
+    @Test void rejectsUnknownTermStatus() throws Exception {
+        ObjectNode response = valid();
+        ((ObjectNode) response.path("terms").get(0)).put("status", "AGREED");
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(response, Set.of("m1")));
+    }
+
 }
