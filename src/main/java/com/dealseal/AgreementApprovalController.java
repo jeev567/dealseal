@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Hackathon prototype only: state is in memory and roles are self-asserted.
+ * Hackathon prototype only: state is cached in memory and persisted to SQLite; roles are self-asserted.
  * Do not use as legal signatures, identity verification, or payment authorization.
  */
 @RestController
@@ -46,6 +46,9 @@ public class AgreementApprovalController {
     }
 
     private final Map<UUID, Agreement> agreements = new ConcurrentHashMap<>();
+    private final DemoStore store;
+    public AgreementApprovalController(DemoStore store) { this.store = store; }
+    private void persist(Agreement a) { store.saveAgreement(new DemoStore.AgreementRow(a.id,a.version,a.terms,a.clientApproved,a.developerApproved,a.updatedAt)); }
 
     private List<String> validateTerms(List<String> terms) {
         if (terms == null || terms.isEmpty() || terms.size() > 30
@@ -57,6 +60,15 @@ public class AgreementApprovalController {
 
     private Agreement get(UUID id) {
         Agreement agreement = agreements.get(id);
+        if (agreement == null) {
+            agreement = store.agreement(id).map(row -> {
+                Agreement restored = new Agreement(row.id(),row.terms());
+                restored.version = row.version(); restored.clientApproved = row.clientApproved();
+                restored.developerApproved = row.developerApproved(); restored.updatedAt = row.updatedAt();
+                return restored;
+            }).orElse(null);
+            if (agreement != null) { Agreement prior = agreements.putIfAbsent(id,agreement); if (prior != null) agreement = prior; }
+        }
         if (agreement == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Agreement not found");
         return agreement;
     }
@@ -66,6 +78,7 @@ public class AgreementApprovalController {
         List<String> terms = validateTerms(request.terms());
         UUID id = UUID.randomUUID();
         Agreement agreement = new Agreement(id, terms);
+        persist(agreement);
         agreements.put(id, agreement);
         return agreement.view();
     }
@@ -92,6 +105,7 @@ public class AgreementApprovalController {
             agreement.clientApproved = false;
             agreement.developerApproved = false;
             agreement.updatedAt = Instant.now();
+            persist(agreement);
             return agreement.view();
         }
     }
