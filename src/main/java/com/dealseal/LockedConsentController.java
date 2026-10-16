@@ -84,6 +84,9 @@ public class LockedConsentController {
         var agreement = agreements.read(request.agreementId());
         if (agreement.version() != request.version())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Agreement version changed");
+        if (!agreement.bothApproved())
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Both client and developer must approve the agreement before it can be locked");
         synchronized (locks) {
             Locked existing = cached(agreement.id());
             if (existing != null && existing.version == agreement.version() && existing.terms.equals(agreement.terms()))
