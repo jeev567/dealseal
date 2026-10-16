@@ -24,10 +24,12 @@ public class AiAgreementController {
     }
 
     private final ObjectMapper mapper;
+    private final AgreementAnalysisValidator validator;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-    public AiAgreementController(ObjectMapper mapper) {
+    public AiAgreementController(ObjectMapper mapper, AgreementAnalysisValidator validator) {
         this.mapper = mapper;
+        this.validator = validator;
     }
 
     @GetMapping("/status")
@@ -56,15 +58,9 @@ public class AiAgreementController {
             if (response.statusCode() != 200)
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI provider returned HTTP " + response.statusCode());
             JsonNode result = mapper.readTree(mapper.readTree(response.body()).path("choices").path(0).path("message").path("content").asText());
-            if (!result.path("terms").isArray() || !result.path("warnings").isArray())
-                throw new IllegalArgumentException("Invalid model response");
             Set<String> validIds = new HashSet<>();
             for (Map<String, String> m : messages) validIds.add(m.get("id"));
-            for (JsonNode term : result.path("terms"))
-                for (JsonNode id : term.path("evidenceMessageIds"))
-                    if (!validIds.contains(id.asText()))
-                        throw new IllegalArgumentException("Invalid evidence reference");
-            ((com.fasterxml.jackson.databind.node.ObjectNode) result).put("readyForSignature", false);
+            validator.validate(result, validIds);
             return result;
         } catch (ResponseStatusException e) {
             throw e;
