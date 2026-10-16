@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 dnf update -y
-dnf install -y java-21-amazon-corretto-headless nginx git tar gzip
+dnf install -y java-21-amazon-corretto-headless nginx git tar gzip awscli
 systemctl enable --now amazon-ssm-agent
 mkdir -p /opt/dealseal /var/lib/dealseal/contracts
 id dealseal || useradd --system --home /opt/dealseal --shell /sbin/nologin dealseal
