@@ -10,10 +10,36 @@ Developer: I can do $2,300, delivered November 20.
 Client: $2,300 works. Two revisions included?
 Developer: Yes, two revisions included.</textarea><div style="display:flex;gap:12px;flex-wrap:wrap"><button id="analyze">Offline analysis →</button><button id="aiAnalyze" style="background:#8faaff">Analyze with AI ✦</button></div><p class="muted" id="aiStatus">Checking AI configuration…</p></section>
 <section class="panel"><h2>Agreement intelligence</h2><p class="muted" id="summary">Run analysis to review the extracted terms.</p><div id="terms"></div><div id="warnings"></div><button id="preview" class="hidden">Prepare review summary</button></section></div>
-<section id="contractPanel" class="panel hidden" style="margin-top:22px"><h2>Draft review summary</h2><p class="muted">Not a contract, not signed, and not ready for payment. Each party must independently approve finalized terms.</p><div class="contract" id="contract"></div></section></main>
+<section id="contractPanel" class="panel hidden" style="margin-top:22px"><h2>Draft review summary</h2><p class="muted">Not a contract, not signed, and not ready for payment. Each party must independently approve finalized terms.</p><div class="contract" id="contract"></div></section><section class="panel" style="margin-top:22px"><h2>Contract PDF • Tamper verification</h2><p class="muted">Demo-only unsigned draft. This does not certify identity, consent, or signatures. A matching SHA-256 hash detects any changes to the issued PDF.</p><div style="display:flex;gap:12px;flex-wrap:wrap"><label>Buyer <input id="pdfBuyer" value="Client" maxlength="120"></label><label>Seller <input id="pdfSeller" value="Developer" maxlength="120"></label></div><button id="issuePdf">Generate unsigned PDF</button><p id="pdfReceipt" class="muted"></p><a id="pdfDownload" class="hidden" href="#" style="color:#85e6c3">Download contract PDF</a><hr style="border-color:#29354e;margin-top:20px"><label>Verify downloaded PDF <input id="pdfFile" type="file" accept="application/pdf"></label><button id="verifyPdf">Verify PDF</button><p id="pdfVerification" class="muted"></p></section></main>
 <script>
 const el=id=>document.getElementById(id);let result;
 async function runAnalysis(ai){const btn=el(ai?'aiAnalyze':'analyze');btn.disabled=true;el('summary').textContent='Analyzing…';el('terms').replaceChildren();el('warnings').replaceChildren();el('contractPanel').classList.add('hidden');try{const r=await fetch(ai?'/api/ai/analyze':'/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({conversation:el('conversation').value})});if(!r.ok)throw new Error('Request failed ('+r.status+')');result=await r.json();el('summary').textContent='Status: '+result.status+' — manual confirmation required';for(const t of result.terms){const d=document.createElement('div');d.className='term';for(const [tag,val,cls] of [['strong',t.field,''],['div',typeof t.value==='string'?t.value:JSON.stringify(t.value),'value'],['div',t.status,'status'],['div',(t.question||'')+(t.evidenceMessageIds?.length?' • Evidence: '+t.evidenceMessageIds.join(', '):''),'muted']]){const n=document.createElement(tag);n.textContent=val;n.className=cls;d.append(n)}el('terms').append(d)}for(const w of result.warnings){const d=document.createElement('div');d.className='warning';d.textContent=w;el('warnings').append(d)}el('preview').classList.remove('hidden')}catch(e){el('summary').textContent='Error: '+e.message}finally{btn.disabled=false}};
 el('analyze').onclick=()=>runAnalysis(false);el('aiAnalyze').onclick=()=>runAnalysis(true);fetch('/api/ai/status').then(r=>r.json()).then(x=>el('aiStatus').textContent=x.configured?'AI provider configured. AI analysis available.':'AI key not configured. Offline analysis works without it.').catch(()=>el('aiStatus').textContent='AI status unavailable.');
 el('preview').onclick=()=>{el('contract').textContent='DEALSEAL — TERMS FOR REVIEW\n\n'+result.terms.map(t=>t.field+': '+t.value+'\nStatus: '+t.status+'\nQuestion: '+t.question).join('\n\n')+'\n\nNOT A SIGNED CONTRACT. No payment is authorized.\nBoth parties must review and expressly approve final terms.';el('contractPanel').classList.remove('hidden');el('contractPanel').scrollIntoView({behavior:'smooth'})};
+
+let issuedContractId=null;
+el('issuePdf').onclick=async()=>{
+  if(!result?.terms?.length){el('pdfReceipt').textContent='Run agreement analysis first.';return}
+  try{
+    const terms=result.terms.filter(t=>t.status!=='MISSING').map(t=>({field:String(t.field),value:String(t.value)}));
+    if(!terms.length)throw Error('No draft terms to include');
+    const response=await fetch('/api/contracts/issue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({buyer:el('pdfBuyer').value,seller:el('pdfSeller').value,terms})});
+    if(!response.ok)throw Error('Issuance failed: HTTP '+response.status);
+    const receipt=await response.json();issuedContractId=receipt.contractId;
+    el('pdfReceipt').textContent='UNSIGNED DRAFT | Contract ID: '+receipt.contractId+' | SHA-256: '+receipt.sha256;
+    el('pdfDownload').href=receipt.downloadUrl;el('pdfDownload').classList.remove('hidden');
+  }catch(e){el('pdfReceipt').textContent=e.message}
+};
+el('verifyPdf').onclick=async()=>{
+  if(!issuedContractId){el('pdfVerification').textContent='Generate a PDF first.';return}
+  const file=el('pdfFile').files[0];
+  if(!file){el('pdfVerification').textContent='Choose the PDF file to verify.';return}
+  try{
+    const form=new FormData();form.append('file',file);
+    const response=await fetch('/api/contracts/'+issuedContractId+'/verify',{method:'POST',body:form});
+    if(!response.ok)throw Error('Verification failed: HTTP '+response.status);
+    const data=await response.json();
+    el('pdfVerification').textContent=data.matchesOriginal?'MATCH: PDF bytes are identical to the stored original.':'MISMATCH: PDF differs from the stored original.';
+  }catch(e){el('pdfVerification').textContent=e.message}
+};
 </script></body></html>
