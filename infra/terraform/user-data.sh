@@ -32,6 +32,7 @@ User=dealseal
 WorkingDirectory=/opt/dealseal
 EnvironmentFile=-/etc/dealseal.env
 Environment=DEALSEAL_CONTRACTS_DIRECTORY=/var/lib/dealseal/contracts
+Environment=DEALSEAL_DB_PATH=/var/lib/dealseal/dealseal.db
 ExecStart=/usr/bin/java -Xms128m -Xmx900m -jar /opt/dealseal/app.jar
 Restart=on-failure
 RestartSec=5
