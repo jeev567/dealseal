@@ -5,9 +5,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class AgreementWorkflowControllerTest {
-    private final AgreementApprovalController approvals = new AgreementApprovalController();
+    private final DemoStore store = mock(DemoStore.class);
+    private final AgreementApprovalController approvals = new AgreementApprovalController(store);
     private final AgreementWorkflowController workflow =
             new AgreementWorkflowController(new AgreementDraftController(), approvals, new AgreementCompletenessValidator());
 

@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
 
 class AgreementApprovalControllerTest {
-    private final AgreementApprovalController controller = new AgreementApprovalController();
+    private final DemoStore store = mock(DemoStore.class);
+    private final AgreementApprovalController controller = new AgreementApprovalController(store);
 
     private UUID create() {
         return controller.create(new AgreementApprovalController.CreateRequest(List.of("Price: $2300"))).id();
