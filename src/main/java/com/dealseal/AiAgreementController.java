@@ -28,11 +28,16 @@ public class AiAgreementController {
 
     private final ObjectMapper mapper;
     private final AgreementAnalysisValidator validator;
+    private final WebsiteAnalysisNormalizer normalizer;
+    private final AgreementCompletenessValidator completeness;
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-    public AiAgreementController(ObjectMapper mapper, AgreementAnalysisValidator validator) {
+    public AiAgreementController(ObjectMapper mapper, AgreementAnalysisValidator validator,
+                                 WebsiteAnalysisNormalizer normalizer, AgreementCompletenessValidator completeness) {
         this.mapper = mapper;
         this.validator = validator;
+        this.normalizer = normalizer;
+        this.completeness = completeness;
     }
 
     @GetMapping("/status")
@@ -103,7 +108,18 @@ public class AiAgreementController {
                 log.warn("AI response validation failed: {}", invalid.getMessage());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI response failed validation");
             }
-            return result;
+            var normalized = normalizer.normalize(result);
+            validator.validate(normalized, validIds);
+            var parsedTerms = new ArrayList<AgreementDraftController.Term>();
+            for (JsonNode term : normalized.path("terms")) {
+                var ids = new ArrayList<String>();
+                for (JsonNode id : term.path("evidenceMessageIds")) ids.add(id.asText());
+                parsedTerms.add(new AgreementDraftController.Term(term.path("field").asText(),
+                        term.path("value").asText(), term.path("status").asText(), ids,
+                        term.path("question").asText()));
+            }
+            normalized.set("completeness", mapper.valueToTree(completeness.check(parsedTerms)));
+            return normalized;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
