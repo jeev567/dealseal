@@ -81,6 +81,10 @@ Client / developer conversation
 
 The bundled example starts with a website project negotiated at **$2,300**, delivery on **November 20**, **two revisions**, and **$1,150 upfront / $1,150 after delivery**. The analyzer can flag unresolved details such as scope, acceptance criteria, and IP ownership so the parties can resolve them before proceeding.
 
+### Complete sample conversation
+
+**[View the complete sample conversation](docs/sample-conversation.md)** — a full website-project negotiation covering all seven required agreement terms.
+
 ## Why it matters to PayPal
 
 DealSeal explores an **agreement-readiness layer** around payments, particularly for freelancers, agencies, and service providers:
