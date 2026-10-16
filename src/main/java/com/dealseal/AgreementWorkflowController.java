@@ -22,10 +22,13 @@ public class AgreementWorkflowController {
 
     private final AgreementDraftController drafts;
     private final AgreementApprovalController approvals;
+    private final AgreementCompletenessValidator completeness;
 
-    public AgreementWorkflowController(AgreementDraftController drafts, AgreementApprovalController approvals) {
+    public AgreementWorkflowController(AgreementDraftController drafts, AgreementApprovalController approvals,
+                                       AgreementCompletenessValidator completeness) {
         this.drafts = drafts;
         this.approvals = approvals;
+        this.completeness = completeness;
     }
 
     @PostMapping("/from-analysis")
@@ -37,6 +40,7 @@ public class AgreementWorkflowController {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Resolve proposed, missing or conflicted terms before requesting approvals");
         }
+        completeness.requireComplete(request.terms());
         List<String> clauses = draft.sections().stream()
                 .map(s -> s.heading() + ": " + s.text())
                 .toList();
