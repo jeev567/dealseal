@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * DEMO ONLY. Bearer approval links prove possession of a link, not identity.
- * State is in-memory; restart clears locks. Do not use for legal signatures or production payments.
+ * State is stored in SQLite for demo restart recovery. Do not use for legal signatures or production payments.
  */
 @RestController
 @RequestMapping("/api/locked-consent")
@@ -37,6 +37,12 @@ public class LockedConsentController {
         boolean developerApproved;
         Instant clientApprovedAt;
         Instant developerApprovedAt;
+        Locked(DemoStore.LockRow row) {
+            id=row.id(); version=row.version(); hash=row.hash(); terms=List.copyOf(row.terms());
+            clientToken=row.clientToken(); developerToken=row.developerToken();
+            clientApprovedAt=row.clientAt(); developerApprovedAt=row.developerAt();
+            clientApproved=clientApprovedAt!=null; developerApproved=developerApprovedAt!=null;
+        }
         Locked(AgreementApprovalController.AgreementView agreement) {
             id = agreement.id(); version = agreement.version(); terms = List.copyOf(agreement.terms());
             hash = sha(String.join("\n", terms).getBytes(StandardCharsets.UTF_8));
@@ -44,8 +50,11 @@ public class LockedConsentController {
         }
     }
     private final AgreementApprovalController agreements;
+    private final DemoStore store;
     private final Map<UUID, Locked> locks = new ConcurrentHashMap<>();
-    public LockedConsentController(AgreementApprovalController agreements) { this.agreements = agreements; }
+    public LockedConsentController(AgreementApprovalController agreements, DemoStore store) { this.agreements = agreements; this.store = store; }
+    private void persist(Locked l) { store.saveLock(new DemoStore.LockRow(l.id,l.version,l.hash,l.terms,l.clientToken,l.developerToken,l.clientApprovedAt,l.developerApprovedAt)); }
+    private Locked cached(UUID id) { return locks.computeIfAbsent(id,k -> store.lock(k).map(Locked::new).orElse(null)); }
     private static String token() {
         byte[] bytes = new byte[32]; RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -55,7 +64,7 @@ public class LockedConsentController {
         catch (Exception e) { throw new IllegalStateException(e); }
     }
     private Locked current(UUID id) {
-        Locked locked = locks.get(id);
+        Locked locked = cached(id);
         if (locked == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No locked contract for this agreement");
         var latest = agreements.read(id);
         if (latest.version() != locked.version || !latest.terms().equals(locked.terms))
@@ -76,10 +85,11 @@ public class LockedConsentController {
         if (agreement.version() != request.version())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Agreement version changed");
         synchronized (locks) {
-            Locked existing = locks.get(agreement.id());
+            Locked existing = cached(agreement.id());
             if (existing != null && existing.version == agreement.version() && existing.terms.equals(agreement.terms()))
                 return view(existing, true);
             Locked locked = new Locked(agreement);
+            persist(locked);
             locks.put(agreement.id(), locked);
             return view(locked, true);
         }
@@ -108,6 +118,7 @@ public class LockedConsentController {
         Locked l = current(id); synchronized(l) {
             String p = party(l, token);
             if (p.equals("CLIENT")) { l.clientApproved = true; if (l.clientApprovedAt == null) l.clientApprovedAt = Instant.now(); } else { l.developerApproved = true; if (l.developerApprovedAt == null) l.developerApprovedAt = Instant.now(); }
+            persist(l);
             return new ConsentView(id, l.version, l.hash, p, l.terms, true, status(l));
         }
     }
