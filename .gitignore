@@ -13,3 +13,5 @@ src/main/resources/application-local.yml
 
 # OS
 .DS_Store
+# Locally issued contract PDFs (sensitive)
+/data/contracts/
