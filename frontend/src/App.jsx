@@ -41,6 +41,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.has('paypalReturn') ? {status:params.get('paypalReturn'),orderId:params.get('token')} : null;
   });
+  const [consentView, setConsentView] = useState(null);
   const [consentError, setConsentError] = useState('');
   const [consentBusy, setConsentBusy] = useState(false);
   const [explicitConsent, setExplicitConsent] = useState(false);
