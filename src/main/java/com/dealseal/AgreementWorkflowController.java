@@ -16,7 +16,7 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/agreements")
 public class AgreementWorkflowController {
-    public record FromAnalysisRequest(@NotNull List<@Valid AgreementDraftController.Term> terms) {}
+    public record FromAnalysisRequest(@NotNull List<AgreementDraftController.Term> terms) {}
     public record FromAnalysisResponse(AgreementApprovalController.AgreementView agreement,
                                        AgreementDraftController.DraftResponse draft) {}
 
