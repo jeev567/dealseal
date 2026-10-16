@@ -38,6 +38,7 @@ Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
+PrivateTmp=true
 ReadWritePaths=/var/lib/dealseal
 [Install]
 WantedBy=multi-user.target
