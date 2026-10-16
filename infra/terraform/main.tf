@@ -20,7 +20,6 @@ resource "aws_vpc" "dealseal" {
   enable_dns_hostnames = true
   tags = { Name = "${var.project_name}-vpc" }
 }
-<<<<<<< Updated upstream
 
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.dealseal.id
@@ -28,17 +27,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
   availability_zone       = "${var.aws_region}a"
   tags = { Name = "${var.project_name}-public" }
-=======
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-  filter {
-    name   = "default-for-az"
-    values = ["true"]
-  }
->>>>>>> Stashed changes
+
 }
 
 resource "aws_internet_gateway" "web" {
@@ -63,11 +52,8 @@ resource "aws_route_table_association" "public" {
 resource "aws_security_group" "web" {
   name_prefix = "${var.project_name}-"
   description = "DealSeal demo web access"
-<<<<<<< Updated upstream
   vpc_id = aws_vpc.dealseal.id
-=======
-  vpc_id      = data.aws_vpc.default.id
->>>>>>> Stashed changes
+
   ingress {
     description = "HTTP"
     from_port   = 80
@@ -116,15 +102,10 @@ resource "aws_iam_instance_profile" "instance" {
   role        = aws_iam_role.instance.name
 }
 resource "aws_instance" "app" {
-<<<<<<< Updated upstream
   ami = data.aws_ami.al2023.id
   instance_type = var.instance_type
   subnet_id = aws_subnet.public.id
-=======
-  ami                         = data.aws_ami.al2023.id
-  instance_type               = var.instance_type
-  subnet_id                   = sort(data.aws_subnets.default.ids)[0]
->>>>>>> Stashed changes
+
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.web.id]
   iam_instance_profile        = aws_iam_instance_profile.instance.name
