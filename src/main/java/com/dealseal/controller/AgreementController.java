@@ -1,4 +1,4 @@
-package com.dealseal;
+package com.dealseal.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

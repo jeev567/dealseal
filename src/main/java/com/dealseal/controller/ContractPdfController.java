@@ -1,4 +1,4 @@
-package com.dealseal;
+package com.dealseal.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
