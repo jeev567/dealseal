@@ -1,0 +1,15 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+build/
+
+# Secrets
+.env
+src/main/resources/application-local.yaml
+src/main/resources/application-local.yml
+
+# OS
+.DS_Store
