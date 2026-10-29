@@ -239,3 +239,16 @@ Relevant infrastructure: `infra/terraform/` and `infra/deploy.sh`.
 ---
 
 **DealSeal AI** — built as a PayPal hackathon prototype to explore a simple idea: *better payment experiences start with clearer agreements.*
+
+## Devpost: PayPal and AI implementation
+
+- **OpenAI-backed analysis:** Extracts negotiated terms from client/provider chat, classifies confirmed versus missing or conflicted details, and helps resolve gaps before agreement creation.
+- **PayPal Sandbox Orders v2:** Creates checkout orders for agreed terms and captures buyer-approved payments through PayPal REST APIs.
+- **Human oversight:** Separate review and consent links, versioned agreements, SHA-256 fingerprinting, and an auditable consent flow precede payment.
+- **PayPal value:** Helps users clarify transaction expectations before paying, potentially improving confidence and reducing preventable misunderstandings. These benefits have not been empirically measured.
+
+**Judging walkthrough:** Chat → AI terms → resolve gaps → locked agreement → independent consent → PayPal Sandbox order → buyer approval → capture.
+
+## License
+
+This project is available under the [MIT License](LICENSE).
